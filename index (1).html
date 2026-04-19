@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>แดชบอร์ดงบประมาณโครงการ</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg2: #161b22;
+  --bg3: #21262d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text2: #8b949e;
+  --text3: #484f58;
+  --green: #3fb950;
+  --green-dim: #1a3826;
+  --blue: #58a6ff;
+  --blue-dim: #1a2840;
+  --amber: #d29922;
+  --amber-dim: #2d2208;
+  --red: #f85149;
+  --red-dim: #3d1a19;
+  --accent: #58a6ff;
+  --radius: 10px;
+  --font: 'IBM Plex Sans Thai', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; }
+body { min-height: 100vh; padding-bottom: 40px; }
+
+/* Header */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.header-left h1 { font-size: 15px; font-weight: 600; color: var(--text); }
+.header-left p { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.refresh-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-family: var(--font);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.refresh-btn:active { opacity: 0.7; transform: scale(0.97); }
+.spin { display: inline-block; }
+.spinning { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Status bar */
+.status-bar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
+  font-size: 11px;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* Main */
+.main { padding: 16px 16px 0; max-width: 600px; margin: 0 auto; }
+
+/* Section title */
+.section-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 20px 0 10px;
+}
+
+/* KPI Grid */
+.kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.kpi-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+.kpi-card.blue::before { background: var(--blue); }
+.kpi-card.green::before { background: var(--green); }
+.kpi-card.amber::before { background: var(--amber); }
+.kpi-card.red::before { background: var(--red); }
+.kpi-label { font-size: 10px; color: var(--text2); margin-bottom: 6px; line-height: 1.4; }
+.kpi-value { font-size: 22px; font-weight: 600; font-family: var(--mono); }
+.kpi-value.blue { color: var(--blue); }
+.kpi-value.green { color: var(--green); }
+.kpi-value.amber { color: var(--amber); }
+.kpi-value.red { color: var(--red); }
+.kpi-sub { font-size: 10px; color: var(--text3); margin-top: 4px; }
+
+/* Big progress ring */
+.ring-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.ring-svg { flex-shrink: 0; }
+.ring-bg { fill: none; stroke: var(--bg3); stroke-width: 8; }
+.ring-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
+.ring-info { flex: 1; }
+.ring-pct { font-size: 32px; font-weight: 600; font-family: var(--mono); color: var(--green); }
+.ring-label { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.ring-detail { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.ring-row { display: flex; justify-content: space-between; font-size: 12px; }
+.ring-row span:first-child { color: var(--text2); }
+.ring-row span:last-child { font-family: var(--mono); font-size: 11px; color: var(--text); }
+
+/* Chart card */
+.chart-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.chart-card-title { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 12px; }
+.chart-wrap { position: relative; width: 100%; }
+
+/* Legend */
+.legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+.legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* Status donut legend */
+.donut-legend { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-top: 10px; }
+.donut-item { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.donut-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.donut-name { color: var(--text2); }
+.donut-count { margin-left: auto; font-family: var(--mono); color: var(--text); font-size: 12px; font-weight: 500; }
+
+/* Project list */
+.project-list { display: flex; flex-direction: column; gap: 8px; }
+.project-item {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.project-name { font-size: 12px; color: var(--text); line-height: 1.5; margin-bottom: 8px; }
+.project-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.project-budget { font-size: 11px; color: var(--text2); font-family: var(--mono); }
+.badge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-family: var(--mono);
+}
+.badge-green { background: var(--green-dim); color: var(--green); }
+.badge-blue { background: var(--blue-dim); color: var(--blue); }
+.badge-amber { background: var(--amber-dim); color: var(--amber); }
+.badge-red { background: var(--red-dim); color: var(--red); }
+.prog-bar { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+.prog-fill { height: 100%; border-radius: 2px; transition: width 0.8s ease; }
+
+/* Loading */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 12px;
+  color: var(--text2);
+  font-size: 13px;
+}
+.loader {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Error */
+.error-box {
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+  border-radius: var(--radius);
+  padding: 16px;
+  color: var(--red);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 24px 16px 0;
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* Skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg2) 25%, var(--bg3) 50%, var(--bg2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>แดชบอร์ดงบประมาณโครงการ</h1>
+    <p>ปีงบประมาณ พ.ศ. 2569</p>
+  </div>
+  <button class="refresh-btn" onclick="loadData()">
+    <span class="spin" id="spin-icon">↻</span> รีเฟรช
+  </button>
+</div>
+
+<div class="status-bar">
+  <span class="status-dot" id="status-dot"></span>
+  <span id="status-text">กำลังโหลดข้อมูล...</span>
+</div>
+
+<div class="main" id="main-content">
+  <div class="loading">
+    <div class="loader"></div>
+    <span>กำลังดึงข้อมูลจาก Google Sheet...</span>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// ⚙️ ตั้งค่า: ใส่ URL จาก Google Apps Script ตรงนี้
+// ============================================================
+const API_URL = 'https://script.google.com/macros/s/AKfycbyebYsrSuC38PCNk1XN2EpXBZm6Iab2SZCOPn7MGN6cKQzK60xg-s2O2Vdp80iVXMHuWg/exec';
+// ============================================================
+
+let qChart = null;
+let statusChart = null;
+
+function fmt(n) {
+  if (!n && n !== 0) return '-';
+  const num = parseFloat(String(n).replace(/,/g,'')) || 0;
+  if (num >= 1000000) return (num/1000000).toFixed(2) + ' ล.';
+  if (num >= 1000) return (num/1000).toFixed(1) + ' พัน';
+  return num.toLocaleString('th-TH');
+}
+
+function fmtFull(n) {
+  const num = parseFloat(String(n).replace(/,/g,'')) || 0;
+  return num.toLocaleString('th-TH');
+}
+
+function getBadgeClass(pct) {
+  const p = parseFloat(pct) || 0;
+  if (p >= 100) return 'badge-green';
+  if (p >= 75) return 'badge-blue';
+  if (p > 0) return 'badge-amber';
+  return 'badge-red';
+}
+
+function getColor(pct) {
+  const p = parseFloat(pct) || 0;
+  if (p >= 100) return '#3fb950';
+  if (p >= 75) return '#58a6ff';
+  if (p > 0) return '#d29922';
+  return '#f85149';
+}
+
+function shortName(name) {
+  const n = String(name || '');
+  if (n.length > 60) return n.substring(0, 60) + '...';
+  return n;
+}
+
+async function loadData() {
+  const spin = document.getElementById('spin-icon');
+  const statusText = document.getElementById('status-text');
+  const statusDot = document.getElementById('status-dot');
+  spin.classList.add('spinning');
+  statusText.textContent = 'กำลังโหลดข้อมูล...';
+  statusDot.style.background = '#d29922';
+
+  try {
+    if (!API_URL || API_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
+      renderDemo();
+      return;
+    }
+    const res = await fetch(API_URL + '?t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    renderDashboard(data);
+    statusText.textContent = 'อัปเดตล่าสุด: ' + (data.lastUpdated || new Date().toLocaleString('th-TH'));
+    statusDot.style.background = '#3fb950';
+  } catch (err) {
+    document.getElementById('main-content').innerHTML = `
+      <div class="error-box" style="margin-top:20px">
+        <strong>ไม่สามารถโหลดข้อมูลได้</strong><br><br>
+        ${err.message}<br><br>
+        กรุณาตรวจสอบ:<br>
+        1. URL ใน API_URL ถูกต้องหรือไม่<br>
+        2. Google Apps Script ถูก Deploy แล้วหรือไม่<br>
+        3. ตั้งค่าสิทธิ์เป็น "Anyone" แล้วหรือไม่
+      </div>`;
+    statusText.textContent = 'โหลดข้อมูลไม่สำเร็จ';
+    statusDot.style.background = '#f85149';
+  } finally {
+    spin.classList.remove('spinning');
+  }
+}
+
+function renderDashboard(data) {
+  const s = data.summary;
+  const projects = data.projects || [];
+
+  // จัดกลุ่มโครงการ
+  const zeros = projects.filter(p => (parseFloat(p['ร้อยละการเบิกจ่าย'])||0) === 0);
+  const overs = projects.filter(p => (parseFloat(p['ร้อยละการเบิกจ่าย'])||0) > 100);
+  const bigs = projects
+    .filter(p => (parseFloat(String(p['งบประมาณรวม']).replace(/,/g,''))||0) >= 100000)
+    .sort((a,b) => (parseFloat(String(b['งบประมาณรวม']).replace(/,/g,''))||0) - (parseFloat(String(a['งบประมาณรวม']).replace(/,/g,''))||0))
+    .slice(0, 8);
+
+  const pct = parseFloat(s.overallPct) || 0;
+  const circumference = 2 * Math.PI * 40;
+  const offset = circumference - (pct / 100) * circumference;
+  const ringColor = pct >= 80 ? '#3fb950' : pct >= 60 ? '#58a6ff' : pct >= 40 ? '#d29922' : '#f85149';
+
+  document.getElementById('main-content').innerHTML = `
+    <!-- KPI -->
+    <div class="section-title">ภาพรวมงบประมาณ</div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue">
+        <div class="kpi-label">งบประมาณรวมทั้งสิ้น</div>
+        <div class="kpi-value blue">${fmt(s.totalBudget)}</div>
+        <div class="kpi-sub">${s.countTotal} โครงการ</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">เบิกจ่ายแล้ว</div>
+        <div class="kpi-value green">${fmt(s.totalPaid)}</div>
+        <div class="kpi-sub">${pct.toFixed(2)}% ของงบรวม</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-label">ใบสั่งซื้อ PO ค้างอยู่</div>
+        <div class="kpi-value amber">${fmt(s.totalPO)}</div>
+        <div class="kpi-sub">รวมใช้ไป ${fmt(s.totalUsed)}</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">งบประมาณคงเหลือ</div>
+        <div class="kpi-value red">${fmt(s.totalRemaining)}</div>
+        <div class="kpi-sub">ส่งคืน ${fmtFull(s.totalReturned)} บ.</div>
+      </div>
+    </div>
+
+    <!-- Ring -->
+    <div class="section-title">ร้อยละการเบิกจ่ายรวม</div>
+    <div class="ring-wrap">
+      <svg class="ring-svg" width="100" height="100" viewBox="0 0 100 100">
+        <circle class="ring-bg" cx="50" cy="50" r="40"/>
+        <circle class="ring-fill" cx="50" cy="50" r="40"
+          stroke="${ringColor}"
+          stroke-dasharray="${circumference}"
+          stroke-dashoffset="${circumference}"
+          id="ring-circle"
+          transform="rotate(-90 50 50)"/>
+        <text x="50" y="52" text-anchor="middle" font-size="16" font-weight="600" fill="${ringColor}" font-family="IBM Plex Mono">${pct.toFixed(1)}%</text>
+      </svg>
+      <div class="ring-info">
+        <div class="ring-label">ภาพรวมการเบิกจ่าย</div>
+        <div class="ring-detail">
+          <div class="ring-row"><span>เบิกจ่ายจริง</span><span>${fmtFull(s.totalPaid)} บ.</span></div>
+          <div class="ring-row"><span>PO ค้าง</span><span>${fmtFull(s.totalPO)} บ.</span></div>
+          <div class="ring-row"><span>คงเหลือ</span><span>${fmtFull(s.totalRemaining)} บ.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quarterly Chart -->
+    <div class="section-title">แผนการใช้จ่ายรายไตรมาส</div>
+    <div class="chart-card">
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="qChart" role="img" aria-label="กราฟแท่งแผนงบประมาณรายไตรมาส"></canvas>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div><span>แผนงบประมาณ</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div><span>เบิกจ่ายแล้ว</span></div>
+      </div>
+    </div>
+
+    <!-- Status Donut -->
+    <div class="section-title">สถานะโครงการ</div>
+    <div class="chart-card">
+      <div class="chart-wrap" style="height:180px">
+        <canvas id="statusChart" role="img" aria-label="กราฟวงกลมสถานะโครงการ"></canvas>
+      </div>
+      <div class="donut-legend">
+        <div class="donut-item"><div class="donut-dot" style="background:#3fb950"></div><span class="donut-name">เบิกจ่าย 100%</span><span class="donut-count">${s.count100}</span></div>
+        <div class="donut-item"><div class="donut-dot" style="background:#58a6ff"></div><span class="donut-name">75–99%</span><span class="donut-count">${s.count75to99}</span></div>
+        <div class="donut-item"><div class="donut-dot" style="background:#d29922"></div><span class="donut-name">1–74%</span><span class="donut-count">${s.count1to74}</span></div>
+        <div class="donut-item"><div class="donut-dot" style="background:#f85149"></div><span class="donut-name">ยังไม่เบิก 0%</span><span class="donut-count">${s.count0}</span></div>
+      </div>
+    </div>
+
+    <!-- Big Projects Progress -->
+    <div class="section-title">ความคืบหน้าโครงการขนาดใหญ่</div>
+    <div class="project-list">
+      ${bigs.map(p => {
+        const budget = parseFloat(String(p['งบประมาณรวม']).replace(/,/g,''))||0;
+        const paid = parseFloat(String(p['ผลการเบิกจ่ายงบประมาณ']).replace(/,/g,''))||0;
+        const pctP = parseFloat(p['ร้อยละการเบิกจ่าย'])||0;
+        const w = Math.min(pctP,100);
+        return `<div class="project-item">
+          <div class="project-name">${shortName(p['รายละเอียดโครงการ'])}</div>
+          <div class="project-meta">
+            <span class="project-budget">${fmtFull(budget)} บ.</span>
+            <span class="badge ${getBadgeClass(pctP)}">${pctP.toFixed(1)}%</span>
+          </div>
+          <div class="prog-bar">
+            <div class="prog-fill" style="width:${w}%;background:${getColor(pctP)}"></div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Zero projects -->
+    <div class="section-title">⚠️ โครงการที่ยังไม่เบิกจ่าย (${zeros.length} โครงการ)</div>
+    <div class="project-list">
+      ${zeros.map(p => {
+        const budget = parseFloat(String(p['งบประมาณรวม']).replace(/,/g,''))||0;
+        return `<div class="project-item">
+          <div class="project-name">${shortName(p['รายละเอียดโครงการ'])}</div>
+          <div class="project-meta">
+            <span class="project-budget">${fmtFull(budget)} บ.</span>
+            <span class="badge badge-red">0%</span>
+          </div>
+          <div class="prog-bar"><div class="prog-fill" style="width:0%;background:#f85149"></div></div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    ${overs.length > 0 ? `
+    <div class="section-title">🔴 โครงการที่ใช้งบเกินแผน (${overs.length} โครงการ)</div>
+    <div class="project-list">
+      ${overs.map(p => {
+        const budget = parseFloat(String(p['งบประมาณรวม']).replace(/,/g,''))||0;
+        const pctP = parseFloat(p['ร้อยละการเบิกจ่าย'])||0;
+        return `<div class="project-item" style="border-color:#f85149">
+          <div class="project-name">${shortName(p['รายละเอียดโครงการ'])}</div>
+          <div class="project-meta">
+            <span class="project-budget">${fmtFull(budget)} บ.</span>
+            <span class="badge badge-red">${pctP.toFixed(1)}%</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    <div class="footer">อัปเดตอัตโนมัติทุก 60 วินาที · ดึงข้อมูลจาก Google Sheets</div>
+  `;
+
+  // Animate ring
+  setTimeout(() => {
+    const circle = document.getElementById('ring-circle');
+    if (circle) circle.style.strokeDashoffset = offset;
+  }, 100);
+
+  // Quarterly chart
+  if (qChart) qChart.destroy();
+  const qCtx = document.getElementById('qChart');
+  if (qCtx) {
+    qChart = new Chart(qCtx, {
+      type: 'bar',
+      data: {
+        labels: ['ไตรมาส 1','ไตรมาส 2','ไตรมาส 3','ไตรมาส 4'],
+        datasets: [
+          {
+            label: 'แผน',
+            data: [s.q1Plan, s.q2Plan, s.q3Plan, s.q4Plan],
+            backgroundColor: 'rgba(88,166,255,0.7)',
+            borderRadius: 4,
+          },
+          {
+            label: 'เบิกจ่าย',
+            data: [
+              Math.round(s.q1Plan * pct/100),
+              Math.round(s.q2Plan * pct/100),
+              Math.round(s.q3Plan * pct/100),
+              0
+            ],
+            backgroundColor: 'rgba(63,185,80,0.8)',
+            borderRadius: 4,
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#8b949e', font: { size: 10, family: 'IBM Plex Sans Thai' }}, grid: { color: '#21262d' }},
+          y: { ticks: { color: '#8b949e', font: { size: 9 }, callback: v => (v/1000000).toFixed(1)+'ล.' }, grid: { color: '#21262d' }}
+        }
+      }
+    });
+  }
+
+  // Status donut
+  if (statusChart) statusChart.destroy();
+  const sCtx = document.getElementById('statusChart');
+  if (sCtx) {
+    statusChart = new Chart(sCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['100%','75-99%','1-74%','0%'],
+        datasets: [{
+          data: [s.count100, s.count75to99, s.count1to74, s.count0],
+          backgroundColor: ['#3fb950','#58a6ff','#d29922','#f85149'],
+          borderWidth: 0,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw} โครงการ` }}}
+      }
+    });
+  }
+}
+
+function renderDemo() {
+  // ใช้ข้อมูลตัวอย่างเมื่อยังไม่ได้ตั้งค่า API URL
+  const demoData = {
+    lastUpdated: new Date().toLocaleString('th-TH'),
+    summary: {
+      totalBudget: 5772589,
+      totalPaid: 4679974,
+      totalPO: 857300,
+      totalUsed: 5537274,
+      totalRemaining: 235315,
+      totalReturned: 74706,
+      overallPct: 81.07,
+      q1Plan: 2335504,
+      q2Plan: 1798960,
+      q3Plan: 1638125,
+      q4Plan: 0,
+      countTotal: 71,
+      count100: 30,
+      count75to99: 10,
+      count1to74: 17,
+      count0: 14
+    },
+    projects: []
+  };
+  document.getElementById('status-text').textContent = '⚠️ โหมดตัวอย่าง — กรุณาตั้งค่า API_URL ในไฟล์ index.html';
+  document.getElementById('status-dot').style.background = '#d29922';
+  renderDashboard(demoData);
+}
+
+// โหลดข้อมูลครั้งแรก
+loadData();
+
+// Auto refresh ทุก 60 วินาที
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
